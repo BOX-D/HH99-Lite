@@ -12,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -81,7 +82,7 @@ class PointServiceTest {
         
         when(userPointTable.selectById(userId)).thenReturn(currentUserPoint);
         when(userPointTable.insertOrUpdate(userId, 1500L)).thenReturn(updatedUserPoint);
-        when(pointHistoryTable.insert(userId, chargeAmount, TransactionType.CHARGE, anyLong()))
+        when(pointHistoryTable.insert(eq(userId), eq(chargeAmount), eq(TransactionType.CHARGE), anyLong()))
             .thenReturn(new PointHistory(1L, userId, chargeAmount, TransactionType.CHARGE, System.currentTimeMillis()));
         
         // when
@@ -95,7 +96,7 @@ class PointServiceTest {
         
         verify(userPointTable).selectById(userId);
         verify(userPointTable).insertOrUpdate(userId, 1500L);
-        verify(pointHistoryTable).insert(userId, chargeAmount, TransactionType.CHARGE, anyLong());
+        verify(pointHistoryTable).insert(eq(userId), eq(chargeAmount), eq(TransactionType.CHARGE), anyLong());
     }
 
     @Test
@@ -109,7 +110,7 @@ class PointServiceTest {
         
         when(userPointTable.selectById(userId)).thenReturn(currentUserPoint);
         when(userPointTable.insertOrUpdate(userId, 500L)).thenReturn(updatedUserPoint);
-        when(pointHistoryTable.insert(userId, useAmount, TransactionType.USE, anyLong()))
+        when(pointHistoryTable.insert(eq(userId), eq(useAmount), eq(TransactionType.USE), anyLong()))
             .thenReturn(new PointHistory(1L, userId, useAmount, TransactionType.USE, System.currentTimeMillis()));
         
         // when
@@ -123,6 +124,50 @@ class PointServiceTest {
         
         verify(userPointTable).selectById(userId);
         verify(userPointTable).insertOrUpdate(userId, 500L);
-        verify(pointHistoryTable).insert(userId, useAmount, TransactionType.USE, anyLong());
+        verify(pointHistoryTable).insert(eq(userId), eq(useAmount), eq(TransactionType.USE), anyLong());
     }
+
+    // 예외 상황 테스트
+    @Test
+    @DisplayName("음수 금액으로 포인트 충전 시 예외가 발생한다")
+    void shouldThrowExceptionWhenChargeWithNegativeAmount() {
+        // given
+        long userId = 1L;
+        long negativeAmount = -1000L;
+        
+        // when & then
+        assertThatThrownBy(() -> pointService.chargePoint(userId, negativeAmount))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("충전/사용 금액은 0보다 커야 합니다");
+    }
+
+    @Test
+    @DisplayName("0원으로 포인트 충전 시 예외가 발생한다")
+    void shouldThrowExceptionWhenChargeWithZeroAmount() {
+        // given
+        long userId = 1L;
+        long zeroAmount = 0L;
+        
+        // when & then
+        assertThatThrownBy(() -> pointService.chargePoint(userId, zeroAmount))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("충전/사용 금액은 0보다 커야 합니다");
+    }
+
+    @Test
+    @DisplayName("보유 포인트보다 많은 금액을 사용할 때 예외가 발생한다")
+    void shouldThrowExceptionWhenUseMoreThanBalance() {
+        // given
+        long userId = 1L;
+        long useAmount = 1000L;
+        UserPoint currentPoint = new UserPoint(userId, 500L, System.currentTimeMillis());
+        
+        when(userPointTable.selectById(userId)).thenReturn(currentPoint);
+        
+        // when & then
+        assertThatThrownBy(() -> pointService.usePoint(userId, useAmount))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("보유 포인트가 부족합니다. 현재: 500, 필요: 1000");
+    }
+
 }
