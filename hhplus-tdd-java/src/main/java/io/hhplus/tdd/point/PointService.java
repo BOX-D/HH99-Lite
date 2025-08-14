@@ -21,27 +21,39 @@ public class PointService {
      * 사용자의 포인트를 조회한다
      */
     public UserPoint getUserPoint(long userId) {
-        return new UserPoint(0, 0, 0);
+        return userPointTable.selectById(userId);
     }
 
     /**
      * 사용자의 포인트 히스토리를 조회한다
      */
     public List<PointHistory> getUserPointHistory(long userId) {
-        return List.of();
+        return pointHistoryTable.selectAllByUserId(userId);
     }
 
     /**
      * 사용자의 포인트를 충전한다
      */
     public UserPoint chargePoint(long userId, long amount) {
-        return new UserPoint(0, 0, 0);
+        UserPoint currentPoint = userPointTable.selectById(userId);
+        long newPoint = currentPoint.point() + amount;
+        UserPoint updatedPoint = userPointTable.insertOrUpdate(userId, newPoint);
+        
+        pointHistoryTable.insert(userId, amount, TransactionType.CHARGE, System.currentTimeMillis());
+        
+        return updatedPoint;
     }
 
     /**
      * 사용자의 포인트를 사용한다
      */
     public UserPoint usePoint(long userId, long amount) {
-        return new UserPoint(0, 0, 0);
+        UserPoint currentPoint = userPointTable.selectById(userId);
+        long newPoint = currentPoint.point() - amount;
+        UserPoint updatedPoint = userPointTable.insertOrUpdate(userId, newPoint);
+        
+        pointHistoryTable.insert(userId, amount, TransactionType.USE, System.currentTimeMillis());
+        
+        return updatedPoint;
     }
 }
